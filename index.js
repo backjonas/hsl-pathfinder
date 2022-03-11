@@ -1,53 +1,5 @@
-import { request, gql } from 'graphql-request';
 import _ from 'lodash';
-const url = 'https://api.digitransit.fi/routing/v1/routers/hsl/index/graphql';
-
-const fetchTime = async (startPoint, endPoint) =>  {
-  try {
-    const query = gql`
-    {
-      plan(
-        from: {${startPoint}}
-        to: {${endPoint}}
-        numItineraries: 1
-      ) {
-        itineraries {
-          legs {
-            startTime
-            endTime
-            mode
-            duration
-            realTime
-            distance
-            transitLeg
-          }
-        }
-      }
-    }`
-    const response = await request(url, query);
-    const route = response.plan.itineraries[0].legs;
-    const totalDuration = _(route).sumBy('duration');
-    return {route: route, duration: totalDuration};
-  
-  } catch (error) {
-    console.log(`Error fetching from HSL: ${error}`);
-  }
-};
-
-const populateGraph = async (locations) => {
-  if (locations.length < 2) return;
-
-  const res = {};
-  for (let i = 0; i < locations.length; i++) {
-    const currentObject = {};
-    for (let j = 0; j < locations.length; j++) {
-      if (i === j) continue;
-      currentObject[j] = await fetchTime(locations[i], locations[j]);
-    }
-    res[i] = currentObject;
-  }
-  return res;
-};
+import { getEdgeWeights } from './routeplanner';
 
 const permutations = arr => {
   if (arr.length <= 2) return arr.length === 2 ? [arr, [arr[1], arr[0]]] : arr;
@@ -64,7 +16,6 @@ const permutations = arr => {
 };
 
 const findFastestRoute = (routeDurations) => {
-  let sum = 0;
   const routePermutations = permutations(Object.keys(routeDurations));
   const permDurations = routePermutations.map((route) => {
     let duration = 0;
@@ -76,7 +27,7 @@ const findFastestRoute = (routeDurations) => {
       duration: duration
     }
   });
-  console.log(permDurations);
+  // console.log(permDurations);
   return _.sortBy(permDurations, (i) => i.duration);
   
 };
@@ -85,16 +36,21 @@ const locations = [
   'lat: 60.168992, lon: 24.932366', 
   'lat: 60.175294, lon: 24.684855',
   'lat: 60.165294, lon: 24.884855',
+  // 'lat: 60.168992, lon: 24.632366', 
+  // 'lat: 60.155294, lon: 24.884855',
+  // 'lat: 60.175294, lon: 24.584855',
+  // 'lat: 60.185294, lon: 24.784855',
+  // 'lat: 60.175294, lon: 24.784855',
 ];
 
-const testList = [1, 2, 3];
-
-const calculatedRoutes = populateGraph(locations);
-
+const calculatedRoutes = getEdgeWeights(locations);
+const startTime = new Date();
 calculatedRoutes
   .then((routeDurations) => {
     console.log(routeDurations);
     const fastestRoutes = findFastestRoute(routeDurations);
-    console.log('fastest routes: ', fastestRoutes.slice(0, 3));
+    console.log('fastest routes: ', fastestRoutes.slice(0, 5));
+    const endTime = new Date();
+    console.log(`Runtime: ${(endTime - startTime) / 1000}s`)
   })
   .catch(e => console.log(e));
