@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "axios": "^0.26.1",
     "graphql-request": "^4.0.0",
     "lodash": "^4.17.21",
     "node-fetch": "^3.2.2"
